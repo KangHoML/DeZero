@@ -4,13 +4,26 @@ class Variable:
     def __init__(self, data):
         self.data = data
         self.grad = None        # 미분값 저장
+        self.creator = None     # 해당 변수를 만든 함수
+
+    def set_creator(self, func):
+        self.creator = func
+
+    def backward(self):
+        f = self.creator
+        if f is not None:
+            x = f.input        
+            x.grad = f.backward(self.grad)
+            x.backward()
 
 class Function:
-    def __call__(self, input: Variable):
+    def __call__(self, input):
         x = input.data
         y = self.forward(x)
-        self.input = input      # 입력값 저장 (역전파에서 사용)
         output = Variable(y)
+        output.set_creator(self)    # output 변수를 만든 함수
+        self.input = input          # 입력값 저장 (역전파에서 사용)
+        self.output = output
         return output
 
     def forward(self, x):
