@@ -1,4 +1,21 @@
+import weakref
 import numpy as np
+import contextlib
+
+class Config:
+    enable_backprop = True
+
+@contextlib.contextmanager
+def using_config(name, value):
+    old_value = getattr(Config, name)
+    setattr(Config, name, value)
+    try:
+        yield
+    finally:
+        setattr(Config, name, old_value)
+
+def no_grad():
+    return using_config('enable_backprop', False)
 
 class Variable:
     def __init__(self, data):
@@ -15,7 +32,7 @@ class Variable:
         self.creator = func
         self.generation = func.generation + 1
 
-    def backward(self):
+    def backward(self, retain_grad=False):
         if self.grad is None:
             self.grad = np.ones_like(self.data)
 
@@ -33,7 +50,7 @@ class Variable:
         while funcs:            
             f = funcs.pop()
 
-            gys = [output.grad for output in f.outputs]
+            gys = [output().grad for output in f.outputs]
             gxs = f.backward(*gys)
             if not isinstance(gxs, tuple):
                 gxs = (gxs,)
@@ -46,7 +63,11 @@ class Variable:
 
                 if x.creator is not None:
                     add_func(x.creator)
-    
+
+            if not retain_grad:
+                for y in f.outputs:
+                    y().grad = None
+
     def cleargrad(self):
         self.grad = None
 
@@ -58,11 +79,12 @@ class Function:
             ys = (ys,)
         outputs = [Variable(as_array(y)) for y in ys]
         
-        self.generation = max([x.generation for x in inputs])
-        for output in outputs:
-            output.set_creator(self)
-        self.inputs = inputs
-        self.outputs = outputs
+        if Config.enable_backprop:
+            self.generation = max([x.generation for x in inputs])
+            for output in outputs:
+                output.set_creator(self)
+            self.inputs = inputs
+            self.outputs = [weakref.ref(output) for output in outputs]
         
         return outputs if len(outputs) > 1 else outputs[0]
 
