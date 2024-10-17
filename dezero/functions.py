@@ -1,5 +1,5 @@
 import numpy as np
-from core import Variable, Function
+from dezero.core import Variable, Function
 
 class Square(Function):
     def forward(self, x):
