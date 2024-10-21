@@ -1,14 +1,7 @@
 import os
 import subprocess
 
-from dezero.core import Variable, as_array
-
-def numerical_diff(f, x, eps=1e-4):
-    x0 = Variable(as_array(x.data - eps)) 
-    x1 = Variable(as_array(x.data + eps))
-    y0 = f(x0)
-    y1 = f(x1)
-    return (y1.data - y0.data) / (2 * eps)
+from dezero import Variable, as_array, as_variable
 
 def _dot_var(v, verbose=False):
     dot_var = '{} [label="{}", color=orange, style=filled]\n'
@@ -77,3 +70,42 @@ def plot_dot_graph(output, verbose=True, to_file='graph.png'):
         return display.Image(filename=to_file)
     except:
         pass
+
+def sum_to(x, shape):
+    ndim = len(shape)
+    lead = x.ndim - ndim
+    lead_axis = tuple(range(lead))
+
+    axis = tuple([i + lead for i, sx in enumerate(shape) if sx == 1])
+    y = x.sum(lead_axis + axis, keepdims=True)
+    if lead > 0:
+        y = y.squeeze(lead_axis)
+    return y
+
+def reshape_sum_backward(gy, x_shape, axis, keepdims):
+    ndim = len(x_shape)
+    tupled_axis = axis
+    if axis is None:
+        tupled_axis = None
+    elif not isinstance(axis, tuple):
+        tupled_axis = (axis, )
+
+    if not (ndim == 0 or tupled_axis is None or keepdims):
+        actual_axis = [a if a >= 0 else a + ndim for a in tupled_axis]
+        shape = list(gy.shape)
+        for a in sorted(actual_axis):
+            shape.insert(a, 1)
+    
+    else:
+        shape = gy.shape
+
+    gy = gy.reshape(shape)
+    return gy
+
+
+def numerical_diff(f, x, eps=1e-4):
+    x0 = Variable(as_array(x.data - eps)) 
+    x1 = Variable(as_array(x.data + eps))
+    y0 = f(x0)
+    y1 = f(x1)
+    return (y1.data - y0.data) / (2 * eps)
