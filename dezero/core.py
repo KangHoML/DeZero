@@ -121,6 +121,8 @@ class Variable:
     def sum(self, axis=None, keepdims=False):
         return dezero.functions.sum(self, axis, keepdims)
 
+class Parameter(Variable):
+    pass
 
 def as_variable(obj):
     if isinstance(obj, Variable):
